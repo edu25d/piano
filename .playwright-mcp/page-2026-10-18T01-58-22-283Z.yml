@@ -1,0 +1,113 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - img [ref=e6]
+        - text: 계단 읽기 연습장
+      - generic [ref=e8]:
+        - generic [ref=e9]: 학생 연습 모드
+        - button "도움말" [ref=e11] [cursor=pointer]: "?"
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - generic [ref=e14]: 듣기 · 읽기 · 연주
+        - heading "한 음씩, 천천히 읽어요" [level=1] [ref=e15]
+        - paragraph [ref=e16]: 악보를 보고 알맞은 건반을 눌러 연주해 보세요.
+      - generic [ref=e17]: 01 / 14
+    - region "악보 연습" [ref=e18]:
+      - generic [ref=e19]:
+        - generic [ref=e20]:
+          - generic [ref=e21]: ♫
+          - generic [ref=e23]: 작은 별 · 첫걸음
+        - generic [ref=e24]:
+          - button "악보 올리기" [ref=e25] [cursor=pointer]:
+            - img [ref=e26]
+            - text: 악보 올리기
+          - button "Choose File" [ref=e29]
+      - generic "MusicXML 악보 표시 영역, 파일을 여기에 끌어다 놓으세요" [ref=e30]:
+        - generic "악보 영역을 위아래로 스크롤해 살펴보세요" [ref=e31]:
+          - generic [ref=e33]:
+            - img [ref=e34]:
+              - generic [ref=e107]: "3"
+            - img [ref=e108]
+        - generic [ref=e109]: 1번째 음 · 악보에서 찾아보세요
+      - generic [ref=e110]:
+        - generic [ref=e111]:
+          - img [ref=e113]
+          - generic [ref=e116]: 시작하기를 누르면 첫 음을 함께 찾아볼게요.
+        - generic [ref=e117]: 0 / 14 음
+      - generic "연습 진행도" [ref=e118]
+      - region "피아노 건반" [ref=e119]:
+        - generic [ref=e120]:
+          - generic [ref=e121]: 피아노 건반
+          - generic [ref=e122]:
+            - button "계이름 표시" [pressed] [ref=e123] [cursor=pointer]: 계이름 표시
+            - generic [ref=e126]:
+              - img [ref=e127]
+              - generic [ref=e130]: 전체 음량
+              - slider "전체 음량" [ref=e131]: "55"
+        - generic [ref=e132]:
+          - generic [ref=e133]:
+            - button "솔 건반" [ref=e134] [cursor=pointer]:
+              - generic: 솔
+            - button "라 건반" [ref=e135] [cursor=pointer]:
+              - generic: 라
+            - button "시 건반" [ref=e136] [cursor=pointer]:
+              - generic: 시
+            - button "도 건반" [ref=e137] [cursor=pointer]:
+              - generic: 도
+            - button "레 건반" [ref=e138] [cursor=pointer]:
+              - generic: 레
+            - button "미 건반" [ref=e139] [cursor=pointer]:
+              - generic: 미
+            - button "파 건반" [ref=e140] [cursor=pointer]:
+              - generic: 파
+            - button "솔 건반" [ref=e141] [cursor=pointer]:
+              - generic: 솔
+            - button "라 건반" [ref=e142] [cursor=pointer]:
+              - generic: 라
+            - button "시 건반" [ref=e143] [cursor=pointer]:
+              - generic: 시
+            - button "도 건반" [ref=e144] [cursor=pointer]:
+              - generic: 도
+            - button "레 건반" [ref=e145] [cursor=pointer]:
+              - generic: 레
+            - button "미 건반" [ref=e146] [cursor=pointer]:
+              - generic: 미
+            - button "파 건반" [ref=e147] [cursor=pointer]:
+              - generic: 파
+          - generic:
+            - button "솔♯ 건반" [ref=e148] [cursor=pointer]:
+              - generic: 솔♯
+            - button "라♯ 건반" [ref=e149] [cursor=pointer]:
+              - generic: 라♯
+            - button "도♯ 건반" [ref=e150] [cursor=pointer]:
+              - generic: 도♯
+            - button "레♯ 건반" [ref=e151] [cursor=pointer]:
+              - generic: 레♯
+            - button "파♯ 건반" [ref=e152] [cursor=pointer]:
+              - generic: 파♯
+            - button "솔♯ 건반" [ref=e153] [cursor=pointer]:
+              - generic: 솔♯
+            - button "라♯ 건반" [ref=e154] [cursor=pointer]:
+              - generic: 라♯
+            - button "도♯ 건반" [ref=e155] [cursor=pointer]:
+              - generic: 도♯
+            - button "레♯ 건반" [ref=e156] [cursor=pointer]:
+              - generic: 레♯
+        - generic [ref=e157]:
+          - img [ref=e158]
+          - text: 건반을 누르면 음이 들려요. 귀로 듣고 악보와 비교해 보세요.
+      - generic [ref=e160]:
+        - generic [ref=e161]: 오늘의 연습 · 음의 높낮이를 귀로 느끼며 한 음씩 도전해요
+        - generic [ref=e162]:
+          - button "처음부터" [ref=e163] [cursor=pointer]:
+            - img [ref=e164]
+            - text: 처음부터
+          - button "시작하기" [ref=e167] [cursor=pointer]:
+            - img [ref=e168]
+            - generic [ref=e170]: 시작하기
+    - generic [ref=e171]:
+      - generic [ref=e172]: 소리는 정답과 상관없이 항상 재생돼요
+      - generic [ref=e173]: ·
+      - generic [ref=e174]: 틀려도 괜찮아요, 다시 눌러보세요
+  - status

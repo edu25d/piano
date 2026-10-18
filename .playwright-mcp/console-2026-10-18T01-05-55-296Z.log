@@ -1,0 +1,8 @@
+[     610ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://sm492k1hqb6ecx3t.jitda.io/__preview-bridge.js:0
+[    1084ms] [WARNING] SkyBottomLineCalculator: width not > 0 in measure 1 @ https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.2/build/opensheetmusicdisplay.min.js:1
+[    1091ms] [WARNING] SkyBottomLineCalculator: width not > 0 in measure 2 @ https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.2/build/opensheetmusicdisplay.min.js:1
+[    1117ms] [WARNING] SkyBottomLineCalculator: width not > 0 in measure 1 @ https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.2/build/opensheetmusicdisplay.min.js:1
+[    1155ms] [WARNING] SkyBottomLineCalculator: width not > 0 in measure 2 @ https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.2/build/opensheetmusicdisplay.min.js:1
+[    1562ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://sm492k1hqb6ecx3t.jitda.io/favicon.ico:0
+[    3778ms] [WARNING] SkyBottomLineCalculator: width not > 0 in measure 1 @ https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.2/build/opensheetmusicdisplay.min.js:1
+[    3784ms] [WARNING] SkyBottomLineCalculator: width not > 0 in measure 2 @ https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.2/build/opensheetmusicdisplay.min.js:1
