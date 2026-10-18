@@ -106,12 +106,13 @@
     let notes=SAMPLE_NOTES, fingerNumbers=[], current=0, started=false, advancing=false, audioContext=null, masterGain=null, osmd=null, hintTimer=null, hintCallbacks=[], advanceTimer=null, lastCorrectPitch=null, scoreSvg=null, scoreNoteHeads=[], scoreLabels=[], scoreHintsLayer=null, scorePracticeLayer=null, scorePracticeLabels=[], scoreObserver=null, scoreSystemGroups=[], confirmedLabels=[], wrongScoreMarker=null, wrongPendingHint=false, activeHintContext=null, activeStudentSession=null, activeScoreXml=null, activeScoreName='', renderedBarsPerLine=0, scoreResizeTimer=0, practiceMode='reading', showPitchNames=false, showFingerNumbers=false;
     const midiFor=n=>12*(n.octave+1)+NATURAL[n.step]+(n.alter||0);
     const noteLabel=n=>NOTE_NAMES[['C','D','E','F','G','A','B'].indexOf(n.step)] + (n.alter===1?'♯':n.alter===-1?'♭':'');
+    // Beginner right-hand map: fixed five-note positions, then direction-specific octave crossings.
     function assignFingerNumbers(sequence){
       const positions=sequence.map(diatonicIndex),pitches=sequence.map(midiFor),fingers=Array(sequence.length).fill(0),scalePattern=[1,2,3,1,2,3,4];
       let phraseStart=0,handLow=null;
       while(phraseStart<sequence.length){
         let phraseEnd=phraseStart+1;
-        while(phraseEnd<sequence.length&&!sequence[phraseEnd].phraseBreak&&Math.abs(positions[phraseEnd]-positions[phraseEnd-1])<=4&&Math.abs(pitches[phraseEnd]-pitches[phraseEnd-1])<=9)phraseEnd++;
+        while(phraseEnd<sequence.length&&Math.abs(positions[phraseEnd]-positions[phraseEnd-1])<=4&&Math.abs(pitches[phraseEnd]-pitches[phraseEnd-1])<=9)phraseEnd++;
         if(handLow===null){const phrase=positions.slice(phraseStart,phraseEnd),low=Math.min(...phrase),high=Math.max(...phrase);handLow=high-low<=4?low:positions[phraseStart]}
         let index=phraseStart;
         while(index<phraseEnd){
@@ -126,8 +127,11 @@
           if(direction&&distinctNotes>=6){
             for(let cursor=index,scaleStep=0;cursor<end;cursor++){
               if(cursor>index&&pitches[cursor]!==pitches[cursor-1])scaleStep++;
-              let finger=distinctNotes===8?[1,2,3,1,2,3,4,5][scaleStep]:scalePattern[scaleStep%scalePattern.length];
-              if(distinctNotes>8&&(distinctNotes-1)%7===0&&scaleStep===distinctNotes-1)finger=5;
+              let finger;
+              if(direction>0){
+                finger=distinctNotes===8?[1,2,3,1,2,3,4,5][scaleStep]:scalePattern[scaleStep%scalePattern.length];
+                if(distinctNotes>8&&(distinctNotes-1)%7===0&&scaleStep===distinctNotes-1)finger=5;
+              }else finger=scaleStep===0?5:[4,3,2,1,3,2,1][(scaleStep-1)%7];
               fingers[cursor]=finger;
             }
             handLow=positions[end-1]-(fingers[end-1]-1);
