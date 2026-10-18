@@ -124,22 +124,29 @@
   function renderPracticeSongs() {
     const select = $('#teacher-assignment-song'), list = $('#teacher-practice-song-list');
     const selectedSongId = select.value;
+    const overriddenDefaults = new Set(practiceSongs
+      .filter(song => song.created_by === teacher?.id && song.musicxml_path.startsWith('builtin:'))
+      .map(song => song.musicxml_path));
+    const visibleLibrary = practiceSongs.filter(song => !(song.created_by === null && song.musicxml_path.startsWith('builtin:') && overriddenDefaults.has(song.musicxml_path)));
     select.replaceChildren(new Option('목록에서 곡을 고르세요', ''));
-    for (const song of practiceSongs.filter(item => item.is_active)) {
+    for (const song of visibleLibrary.filter(item => item.is_active)) {
       select.add(new Option(`${song.title}${song.difficulty ? ` · ${song.difficulty}` : ''}`, song.id));
     }
-    select.value = practiceSongs.some(song => song.id === selectedSongId && song.is_active) ? selectedSongId : '';
+    select.value = visibleLibrary.some(song => song.id === selectedSongId && song.is_active) ? selectedSongId : '';
     list.replaceChildren();
     const showHidden = $('#teacher-library-show-hidden').checked;
-    const visibleSongs = practiceSongs.filter(song => showHidden || song.is_active);
+    const visibleSongs = visibleLibrary.filter(song => showHidden || song.is_active);
     if (!visibleSongs.length) {
       list.innerHTML = '<p class="teacher-empty-note">표시할 연습곡이 없습니다. 파일을 올릴 때 목록에도 추가할 수 있어요.</p>';
       return;
     }
     for (const song of visibleSongs) {
       const owned = song.created_by === teacher?.id;
+      const builtin = song.created_by === null && song.musicxml_path.startsWith('builtin:');
+      const editable = owned || builtin;
       const row = document.createElement('article');
       row.className = `teacher-song-item${song.is_active ? '' : ' is-archived'}`;
+      row.dataset.librarySongId = song.id;
       const main = document.createElement('div');
       main.className = 'teacher-song-main';
       const copy = document.createElement('div');
@@ -148,10 +155,11 @@
       title.textContent = song.title;
       const meta = document.createElement('span');
       meta.className = 'teacher-song-meta';
-      meta.textContent = `${song.difficulty || '난이도 미지정'} · ${owned ? '내 연습곡' : '기본 연습곡'} · ${song.is_active ? '목록에 표시' : '숨김'}`;
+      const personalDefault = owned && song.musicxml_path.startsWith('builtin:');
+      meta.textContent = `${song.difficulty || '난이도 미지정'} · ${builtin || personalDefault ? '기본 연습곡' : owned ? '내 연습곡' : '연습곡'}${personalDefault ? ' · 내 설정' : ''} · ${song.is_active ? '목록에 표시' : '숨김'}`;
       copy.append(title, meta);
       main.append(copy);
-      if (owned) {
+      if (editable) {
         const actions = document.createElement('div');
         actions.className = 'teacher-song-actions';
         const edit = document.createElement('button');
@@ -517,8 +525,29 @@
     const button = event.target.closest('button[data-song-action]');
     if (!button) return;
     const song = practiceSongs.find(item => item.id === button.dataset.songId);
-    if (!song || song.created_by !== teacher?.id) return;
+    const builtin = song?.created_by === null && song.musicxml_path.startsWith('builtin:');
+    if (!song || (song.created_by !== teacher?.id && !builtin)) return;
     if (button.dataset.songAction === 'edit') {
+      if (builtin) {
+        const db = await getSupabase();
+        const { data, error } = await db.from('practice_songs').insert({
+          title: song.title,
+          musicxml_path: song.musicxml_path,
+          difficulty: song.difficulty,
+          sort_order: song.sort_order,
+          is_active: song.is_active,
+          created_by: teacher.id
+        }).select('id').single();
+        if (error) {
+          message($('#teacher-library-message'), error.message || '기본 연습곡 설정을 만들지 못했어요.', true);
+          return;
+        }
+        await loadPracticeSongs();
+        const editor = document.querySelector(`[data-library-song-id="${data.id}"] .teacher-song-editor`);
+        if (editor) editor.hidden = false;
+        message($('#teacher-library-message'), '이 기본 연습곡은 내 계정에서 따로 관리됩니다.');
+        return;
+      }
       const editor = button.closest('.teacher-song-item').querySelector('.teacher-song-editor');
       editor.hidden = !editor.hidden;
       return;
@@ -529,13 +558,25 @@
     }
     if (button.dataset.songAction === 'toggle') {
       const db = await getSupabase();
-      const { error } = await db.from('practice_songs').update({ is_active: !song.is_active }).eq('id', song.id).eq('created_by', teacher.id);
+      const result = builtin
+        ? await db.from('practice_songs').insert({
+          title: song.title,
+          musicxml_path: song.musicxml_path,
+          difficulty: song.difficulty,
+          sort_order: song.sort_order,
+          is_active: !song.is_active,
+          created_by: teacher.id
+        })
+        : await db.from('practice_songs').update({ is_active: !song.is_active }).eq('id', song.id).eq('created_by', teacher.id);
+      const { error } = result;
       if (error) {
         message($('#teacher-library-message'), error.message || '연습곡 공개 상태를 바꾸지 못했어요.', true);
         return;
       }
       await loadPracticeSongs();
-      message($('#teacher-library-message'), song.is_active ? '연습곡을 목록에서 숨겼어요. 기존 기록은 보존됩니다.' : '연습곡을 다시 목록에 표시했어요.');
+      message($('#teacher-library-message'), builtin
+        ? (song.is_active ? '이 기본 연습곡을 내 계정에서 숨겼어요. 다른 선생님 설정에는 영향이 없습니다.' : '기본 연습곡을 내 목록에 다시 표시했어요.')
+        : (song.is_active ? '연습곡을 목록에서 숨겼어요. 기존 기록은 보존됩니다.' : '연습곡을 다시 목록에 표시했어요.'));
     }
   }
 

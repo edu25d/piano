@@ -15,9 +15,6 @@ alter table public.answer_events
 create unique index if not exists answer_events_client_event_id_uidx
   on public.answer_events (client_event_id);
 
-create unique index if not exists practice_songs_musicxml_path_uidx
-  on public.practice_songs (musicxml_path);
-
 insert into public.practice_songs (id, title, musicxml_path, difficulty, sort_order, is_active)
 values
   ('10000000-0000-4000-8000-000000000001', '작은 별 · 첫걸음', 'builtin:twinkle', '기초', 1, true),

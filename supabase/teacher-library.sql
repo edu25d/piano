@@ -1,6 +1,17 @@
 -- Run after teacher-screen.sql to enable teacher-owned practice song management.
+-- Safe to re-run after the first version; built-in edits are stored as per-teacher overrides.
 alter table public.practice_songs
   add column if not exists created_by uuid references auth.users(id) on delete set null;
+
+alter table public.practice_songs
+  drop constraint if exists practice_songs_musicxml_path_key;
+drop index if exists public.practice_songs_musicxml_path_uidx;
+create unique index if not exists practice_songs_builtin_path_uidx
+  on public.practice_songs (musicxml_path)
+  where created_by is null and musicxml_path like 'builtin:%';
+create unique index if not exists practice_songs_owned_path_uidx
+  on public.practice_songs (created_by, musicxml_path)
+  where created_by is not null;
 
 create index if not exists practice_songs_owner_active_idx
   on public.practice_songs (created_by, is_active, sort_order);
