@@ -32,10 +32,11 @@
 - 사용자가 Vercel 배포에서 `/api/supabase-health`가 `connected: true`, `schemaReady: true`를 반환했다고 확인했습니다. 이 검사는 기본 `classes` 테이블까지 확인합니다.
 - 사용자가 `supabase/teacher-screen.sql`, `supabase/student-flow.sql` 실행 및 Vercel `SUPABASE_PUBLISHABLE_KEY` 등록을 확인했습니다.
 - 사용자가 갱신된 `supabase/teacher-library.sql` 실행을 확인했습니다.
-- `supabase/class-repertoire.sql`은 이번 일괄 배정 작업에 새로 추가되어 실행이 필요합니다.
+- 사용자가 새 `supabase/class-repertoire.sql` migration도 실행했다고 확인했습니다.
 - 과제 업로드 화면의 `Invalid key` 오류는 Supabase Storage 경로에 원본 한글 파일명을 포함한 것이 원인으로 확인되어, UUID와 확장자만 사용하는 경로로 변경했습니다.
 - 현재 작업 코드에서 기본 주소는 교사 전용이고 학생은 학급별 QR의 `classId`로 입장하며, 상단 모드 전환은 제거했습니다.
 - 제공된 Vercel 주소에서 교사 전용 루트와 `classId` QR 접속, 학급 검증 API가 동작하는 것을 확인했습니다. 최신 반응형 스타일과 화면 폭별 악보 재배치 코드는 아직 배포에 반영되지 않았습니다.
+- Vercel에서 다중 반 자유 연습/과제 UI와 class-repertoire API 코드, Health API 연결 상태를 확인했습니다. 실제 곡 추가 후 학생 QR에서 반별 노출을 검증하는 단계는 남아 있습니다.
 - Vercel 환경변수 이름은 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY`입니다. 이전 키 이름인 `SUPABASE_SERVICE_ROLE_KEY`도 연결 API에서 호환됩니다.
 - Secret key는 Vercel 서버 함수에서만 사용하고 브라우저로 보내지 않습니다. Publishable key만 `/api/supabase-config`에서 교사 로그인용으로 전달합니다.
 - `.env`는 `.gitignore`에서 제외하고, 예시 변수 이름만 `.env.example`에 기록합니다.
@@ -58,7 +59,7 @@
 - 실제 Vercel 배포에서 학생 입장→과제 선택→연습→재접속 이어하기 흐름을 end-to-end로 검증하기
 - 실제 학생 연습 기록이 생성된 뒤 교사 대시보드의 회차별 진행·정답률 집계를 확인하기
 - 실제 교사 로그인 상태에서 기본곡 수정/숨김과 새 악보 과제 등록을 확인하기
-- `class-repertoire.sql` 적용 후 학급별/다중 학급 연습곡·과제 배정을 실제 Supabase에서 검증하기
+- 실제로 곡을 추가한 뒤 학생 QR에서 해당 반에만 노출되는지, 다중 학급 과제 등록이 분리되는지 확인하기
 - 최신 반응형 코드를 Vercel에 배포한 뒤 Chromebook·태블릿·휴대폰에서 확인하기
 - 공개 교사 계정 만들기를 학교 초대/관리 방식으로 제한할지 결정
 
