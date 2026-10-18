@@ -353,19 +353,27 @@
     const url = new URL('/', location.origin);
     url.searchParams.set('join', '1');
     url.searchParams.set('grade', grade);
-    const canvas = $('#teacher-qr-canvas');
+    const qrElement = $('#teacher-qr-canvas');
     const label = $('#teacher-qr-link');
     label.textContent = url.toString();
     label.classList.add('teacher-qr-link-text');
     label.classList.remove('is-error');
-    canvas.hidden = true;
-    if (!window.QRCode?.toCanvas) {
+    qrElement.hidden = true;
+    qrElement.replaceChildren();
+    if (typeof window.QRCode !== 'function') {
       message(label, 'QR 도구를 불러오지 못했어요. 링크는 복사해 사용할 수 있습니다.', true);
       return;
     }
     try {
-      await window.QRCode.toCanvas(canvas, url.toString(), { width: 152, margin: 1, color: { dark: '#201c38', light: '#ffffff' } });
-      canvas.hidden = false;
+      new window.QRCode(qrElement, {
+        text: url.toString(),
+        width: 144,
+        height: 144,
+        colorDark: '#201c38',
+        colorLight: '#ffffff',
+        correctLevel: window.QRCode.CorrectLevel?.M ?? 0
+      });
+      qrElement.hidden = false;
     } catch {
       message(label, 'QR을 만들지 못했어요. 링크를 직접 복사해 주세요.', true);
     }
