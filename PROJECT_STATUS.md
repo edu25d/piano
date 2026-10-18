@@ -22,11 +22,12 @@
 
 - 사용자가 Vercel 배포에서 `/api/supabase-health`가 `connected: true`, `schemaReady: true`를 반환했다고 확인했습니다. 이 검사는 기본 `classes` 테이블까지 확인합니다.
 - 사용자가 `supabase/teacher-screen.sql`, `supabase/student-flow.sql` 실행 및 Vercel `SUPABASE_PUBLISHABLE_KEY` 등록을 확인했습니다.
+- 사용자가 배포 주소를 제공했습니다. 현재 그 주소는 이전 정적 빌드를 반환하며 `/api/supabase-health`, `/api/supabase-config`, `/api/student-portal`도 HTML fallback을 반환합니다. 배포된 HTML에 최신 `/student.js`가 없어 최신 코드는 아직 해당 배포에 반영되지 않은 상태입니다.
 - Vercel 환경변수 이름은 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY`입니다. 이전 키 이름인 `SUPABASE_SERVICE_ROLE_KEY`도 연결 API에서 호환됩니다.
 - Secret key는 Vercel 서버 함수에서만 사용하고 브라우저로 보내지 않습니다. Publishable key만 `/api/supabase-config`에서 교사 로그인용으로 전달합니다.
 - `.env`는 `.gitignore`에서 제외하고, 예시 변수 이름만 `.env.example`에 기록합니다.
 - 로컬 `serve` 미리보기에는 Vercel API 함수가 실행되지 않습니다. 교사 Supabase 기능은 Vercel 배포 주소에서 확인해야 합니다.
-- 로컬 정적 미리보기에는 Vercel API 함수가 없어 교사/학생 Supabase 흐름을 실제로 검증할 수 없습니다. 배포된 최신 코드에서 end-to-end 확인이 남아 있습니다.
+- 로컬 정적 미리보기에는 Vercel API 함수가 없어 교사/학생 Supabase 흐름을 실제로 검증할 수 없습니다. 최신 코드를 Vercel에 배포한 뒤 end-to-end 확인이 남아 있습니다.
 
 ## Supabase 설정 순서
 
