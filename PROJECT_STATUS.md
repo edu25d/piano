@@ -25,10 +25,10 @@
 
 - 사용자가 Vercel 배포에서 `/api/supabase-health`가 `connected: true`, `schemaReady: true`를 반환했다고 확인했습니다. 이 검사는 기본 `classes` 테이블까지 확인합니다.
 - 사용자가 `supabase/teacher-screen.sql`, `supabase/student-flow.sql` 실행 및 Vercel `SUPABASE_PUBLISHABLE_KEY` 등록을 확인했습니다.
-- `supabase/teacher-library.sql`은 이번 변경으로 추가된 migration이며, 실행 여부는 아직 확인되지 않았습니다.
+- 사용자가 `supabase/teacher-library.sql` 실행 및 Vercel 재배포도 완료했다고 확인했습니다.
 - 과제 업로드 화면의 `Invalid key` 오류는 Supabase Storage 경로에 원본 한글 파일명을 포함한 것이 원인으로 확인되어, UUID와 확장자만 사용하는 경로로 변경했습니다.
-- 사용자가 새 배포 주소 `https://piano-six-pied.vercel.app/`를 제공했습니다. 이 주소에는 최신 학생 화면이 있고 `/api/supabase-health`는 `connected: true`, `schemaReady: true`, `/api/supabase-config`와 `/api/student-portal`도 JSON 응답을 반환합니다.
-- 학생 반 목록 API는 1~6학년 모두 정상 응답했지만, 확인 시점에는 등록된 반이 0개였습니다. 학생 QR 흐름을 시험하려면 교사 화면에서 최소 한 개의 반을 먼저 등록해야 합니다.
+- 배포 주소 `https://piano-six-pied.vercel.app/`에서 최신 교사/학생 화면, `/api/supabase-health`, `/api/supabase-config`, `/api/student-portal`을 확인했습니다. Health는 `connected: true`, `schemaReady: true`이고 설정 응답도 준비되어 있습니다.
+- 최근 확인에서는 3학년 반 1개가 학생 반 목록 API에 표시됐습니다. 과제·곡 CRUD의 실제 인증 write 흐름은 브라우저 로그인 세션이 없어 아직 별도 확인이 필요합니다.
 - Vercel 환경변수 이름은 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY`입니다. 이전 키 이름인 `SUPABASE_SERVICE_ROLE_KEY`도 연결 API에서 호환됩니다.
 - Secret key는 Vercel 서버 함수에서만 사용하고 브라우저로 보내지 않습니다. Publishable key만 `/api/supabase-config`에서 교사 로그인용으로 전달합니다.
 - `.env`는 `.gitignore`에서 제외하고, 예시 변수 이름만 `.env.example`에 기록합니다.
