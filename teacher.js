@@ -2,6 +2,8 @@
   const $ = selector => document.querySelector(selector);
   const studentView = $('#student-view');
   const teacherView = $('#teacher-view');
+  const studentEntryView = $('#student-entry-view');
+  const studentCatalogView = $('#student-catalog-view');
   const teacherAuthPanel = $('#teacher-auth-panel');
   const teacherDashboard = $('#teacher-dashboard');
   let client = null;
@@ -47,7 +49,15 @@
 
   function updateMode(isTeacher) {
     teacherView.hidden = !isTeacher;
-    studentView.hidden = isTeacher;
+    if (isTeacher) {
+      studentView.hidden = true;
+      studentEntryView.hidden = true;
+      studentCatalogView.hidden = true;
+    } else if (window.studentPortal?.showCurrentView) {
+      window.studentPortal.showCurrentView();
+    } else {
+      studentView.hidden = false;
+    }
     $('#mode-label').textContent = isTeacher ? '교사 모드' : '학생 연습 모드';
     $('#teacher-mode-toggle').textContent = isTeacher ? '학생 화면' : '교사 화면';
   }
@@ -145,7 +155,7 @@
     let attempts = [];
     if (students.length) {
       const result = await db.from('practice_attempts')
-        .select('id, student_id, assignment_id, practice_song_id, current_note_index, total_notes, correct_count, incorrect_count, status, started_at, updated_at')
+        .select('id, student_id, assignment_id, practice_song_id, practice_song:practice_songs(title), current_note_index, total_notes, correct_count, incorrect_count, status, started_at, updated_at')
         .in('student_id', students.map(student => student.id))
         .order('started_at', { ascending: true });
       if (result.error) {
@@ -200,7 +210,7 @@
       const progress = attempt.total_notes ? Math.min(100, Math.round(attempt.current_note_index / attempt.total_notes * 100)) : 0;
       const values = [
         studentNames.get(attempt.student_id) || '학생',
-        assignmentNames.get(attempt.assignment_id) || '자유 연습',
+        assignmentNames.get(attempt.assignment_id) || attempt.practice_song?.title || '자유 연습',
         `${roundNumbers.get(attempt.id)}회`,
         `${progress}%`,
         answered ? `${Math.round(attempt.correct_count / answered * 100)}%` : '—',
@@ -318,10 +328,7 @@
 
   async function toggleTeacherMode() {
     const entering = teacherView.hidden;
-    teacherView.hidden = !entering;
-    studentView.hidden = entering;
-    $('#mode-label').textContent = entering ? '교사 모드' : '학생 연습 모드';
-    $('#teacher-mode-toggle').textContent = entering ? '학생 화면' : '교사 화면';
+    updateMode(entering);
     if (!entering) return;
     showAuth();
     message($('#teacher-auth-message'), 'Supabase 연결을 확인하고 있습니다.');
@@ -341,11 +348,50 @@
     }
   }
 
+  async function generateTeacherQr() {
+    const grade = $('#teacher-qr-grade').value;
+    const url = new URL('/', location.origin);
+    url.searchParams.set('join', '1');
+    url.searchParams.set('grade', grade);
+    const canvas = $('#teacher-qr-canvas');
+    const label = $('#teacher-qr-link');
+    label.textContent = url.toString();
+    label.classList.add('teacher-qr-link-text');
+    label.classList.remove('is-error');
+    canvas.hidden = true;
+    if (!window.QRCode?.toCanvas) {
+      message(label, 'QR 도구를 불러오지 못했어요. 링크는 복사해 사용할 수 있습니다.', true);
+      return;
+    }
+    try {
+      await window.QRCode.toCanvas(canvas, url.toString(), { width: 152, margin: 1, color: { dark: '#201c38', light: '#ffffff' } });
+      canvas.hidden = false;
+    } catch {
+      message(label, 'QR을 만들지 못했어요. 링크를 직접 복사해 주세요.', true);
+    }
+  }
+
+  async function copyTeacherQrLink() {
+    const grade = $('#teacher-qr-grade').value;
+    const url = new URL('/', location.origin);
+    url.searchParams.set('join', '1');
+    url.searchParams.set('grade', grade);
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      $('#teacher-qr-link').textContent = '학생 접속 링크를 복사했어요.';
+      $('#teacher-qr-link').classList.remove('is-error');
+    } catch {
+      $('#teacher-qr-link').textContent = url.toString();
+    }
+  }
+
   $('#teacher-mode-toggle').addEventListener('click', toggleTeacherMode);
   $('#teacher-login-form').addEventListener('submit', handleTeacherLogin);
   $('#teacher-signup').addEventListener('click', handleTeacherSignup);
   $('#teacher-class-form').addEventListener('submit', handleCreateClass);
   $('#teacher-assignment-form').addEventListener('submit', handleCreateAssignment);
+  $('#teacher-qr-generate').addEventListener('click', generateTeacherQr);
+  $('#teacher-qr-copy').addEventListener('click', copyTeacherQrLink);
   $('#teacher-progress-class').addEventListener('change', event => selectTeacherClass(event.target.value));
   $('#teacher-assignment-class').addEventListener('change', event => selectTeacherClass(event.target.value));
   $('#teacher-logout').addEventListener('click', async () => {

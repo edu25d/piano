@@ -51,6 +51,7 @@ create table if not exists public.practice_attempts (
   practice_song_id uuid references public.practice_songs(id) on delete cascade,
   current_note_index integer not null default 0 check (current_note_index >= 0),
   total_notes integer not null check (total_notes > 0),
+  note_midi_sequence integer[] not null default '{}',
   correct_count integer not null default 0 check (correct_count >= 0),
   incorrect_count integer not null default 0 check (incorrect_count >= 0),
   status text not null default 'in_progress' check (status in ('in_progress', 'completed')),
@@ -65,12 +66,18 @@ create table if not exists public.answer_events (
   attempt_id uuid not null references public.practice_attempts(id) on delete cascade,
   note_index integer not null check (note_index >= 0),
   try_number integer not null check (try_number > 0),
+  client_event_id uuid not null default gen_random_uuid(),
   target_midi integer not null,
   played_midi integer not null,
   is_correct boolean not null,
   created_at timestamptz not null default now(),
   unique (attempt_id, note_index, try_number)
 );
+
+create unique index if not exists answer_events_client_event_id_uidx
+  on public.answer_events (client_event_id);
+create unique index if not exists practice_songs_musicxml_path_uidx
+  on public.practice_songs (musicxml_path);
 
 create index if not exists assignments_class_active_idx
   on public.assignments (class_id, is_active, created_at desc);
