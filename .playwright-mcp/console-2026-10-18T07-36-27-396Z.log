@@ -1,0 +1,2 @@
+[      76ms] [INFO] [preview-bridge] v1.1.0 @ https://sm492k1hqb6ecx3t.jitda.io/__preview-bridge.js:1
+[   50868ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://sm492k1hqb6ecx3t.jitda.io/api/supabase-config:0
