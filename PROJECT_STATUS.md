@@ -25,7 +25,7 @@
 
 - 사용자가 Vercel 배포에서 `/api/supabase-health`가 `connected: true`, `schemaReady: true`를 반환했다고 확인했습니다. 이 검사는 기본 `classes` 테이블까지 확인합니다.
 - 사용자가 `supabase/teacher-screen.sql`, `supabase/student-flow.sql` 실행 및 Vercel `SUPABASE_PUBLISHABLE_KEY` 등록을 확인했습니다.
-- 사용자가 `supabase/teacher-library.sql`의 이전 버전 실행과 Vercel 재배포를 확인했습니다. 기본곡을 교사별로 관리하도록 migration을 갱신했으므로, 현재 버전을 다시 실행하고 새 코드를 재배포해야 합니다.
+- 사용자가 갱신된 `supabase/teacher-library.sql` 실행을 확인했습니다. Vercel에서 반·곡 관리 탭과 기본곡 교사별 override 코드가 제공되고 Health API도 정상입니다.
 - 과제 업로드 화면의 `Invalid key` 오류는 Supabase Storage 경로에 원본 한글 파일명을 포함한 것이 원인으로 확인되어, UUID와 확장자만 사용하는 경로로 변경했습니다.
 - 배포 주소 `https://piano-six-pied.vercel.app/`에서 최신 교사/학생 화면, `/api/supabase-health`, `/api/supabase-config`, `/api/student-portal`을 확인했습니다. Health는 `connected: true`, `schemaReady: true`이고 설정 응답도 준비되어 있습니다.
 - 최근 확인에서는 3학년 반 1개가 학생 반 목록 API에 표시됐습니다. 과제·곡 CRUD의 실제 인증 write 흐름은 브라우저 로그인 세션이 없어 아직 별도 확인이 필요합니다.
@@ -49,8 +49,7 @@
 
 - 실제 Vercel 배포에서 학생 입장→과제 선택→연습→재접속 이어하기 흐름을 end-to-end로 검증하기
 - 실제 학생 연습 기록이 생성된 뒤 교사 대시보드의 회차별 진행·정답률 집계를 확인하기
-- 갱신된 `supabase/teacher-library.sql`을 다시 실행한 뒤 기본 연습곡 override와 연습곡 CRUD를 확인하기
-- 최신 교사 화면 코드를 `https://piano-six-pied.vercel.app/` 배포에 반영한 뒤 과제 업로드를 확인하기
+- 실제 교사 로그인 상태에서 기본곡 수정/숨김과 새 악보 과제 등록을 확인하기
 - 공개 교사 계정 만들기를 학교 초대/관리 방식으로 제한할지 결정
 
 학생은 현재 반과 이름으로 식별되며, 같은 반 동명이인은 이름 뒤에 숫자를 붙여 구분합니다. 별도 학생 비밀번호/인증 코드는 없으므로 성적처럼 민감한 데이터의 인증 수단으로 사용하면 안 됩니다. 교사용 기록 접근은 교사 로그인과 담당 반 RLS 정책으로 제한합니다.
