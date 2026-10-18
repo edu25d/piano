@@ -10,6 +10,8 @@
 - 교사 담당 반 등록, MusicXML 과제 업로드, 반별 학생 진행 대시보드 UI
 - 교사 현황/반·곡 관리 탭 분리, 연습곡 목록 선택 후 과제 등록, 파일 업로드 경로 한글 제거
 - 교사 소유 연습곡 CRUD, 기본곡 교사별 override, 기록 보존을 위한 숨김 처리
+- 학급별 자유 연습곡 연결과 학급 선택형 일괄 배정 UI
+- 신규 학급은 빈 자유 연습 목록으로 시작하고, 기존 학급의 현재 곡은 migration으로 보존
 - 학급별 QR 생성, 학생 반·이름 입력 및 과제/자유 연습곡 선택 UI
 - 기본 주소는 교사 전용 로그인으로 시작하고, 학생은 반별 `?join=1&classId=...` QR 링크로만 입장
 - 학생 QR 링크의 학급 ID는 서버에서 확인해 입장 반을 고정
@@ -23,12 +25,14 @@
 - 기본 데이터베이스 생성 SQL: `supabase/schema.sql`
 - 교사 반 권한·대시보드·MusicXML 저장 권한 SQL: `supabase/teacher-screen.sql`
 - 교사 개인 연습곡 권한·Storage 경로 SQL: `supabase/teacher-library.sql`
+- 학급별 자유 연습곡 연결·RLS·기존 학급 곡 보존 SQL: `supabase/class-repertoire.sql`
 
 ## Supabase와 Vercel
 
 - 사용자가 Vercel 배포에서 `/api/supabase-health`가 `connected: true`, `schemaReady: true`를 반환했다고 확인했습니다. 이 검사는 기본 `classes` 테이블까지 확인합니다.
 - 사용자가 `supabase/teacher-screen.sql`, `supabase/student-flow.sql` 실행 및 Vercel `SUPABASE_PUBLISHABLE_KEY` 등록을 확인했습니다.
 - 사용자가 갱신된 `supabase/teacher-library.sql` 실행을 확인했습니다.
+- `supabase/class-repertoire.sql`은 이번 일괄 배정 작업에 새로 추가되어 실행이 필요합니다.
 - 과제 업로드 화면의 `Invalid key` 오류는 Supabase Storage 경로에 원본 한글 파일명을 포함한 것이 원인으로 확인되어, UUID와 확장자만 사용하는 경로로 변경했습니다.
 - 현재 작업 코드에서 기본 주소는 교사 전용이고 학생은 학급별 QR의 `classId`로 입장하며, 상단 모드 전환은 제거했습니다.
 - 제공된 Vercel 주소에서 교사 전용 루트와 `classId` QR 접속, 학급 검증 API가 동작하는 것을 확인했습니다. 최신 반응형 스타일과 화면 폭별 악보 재배치 코드는 아직 배포에 반영되지 않았습니다.
@@ -44,15 +48,17 @@
 2. 교사 화면 권한을 적용하기 위해 `supabase/teacher-screen.sql`도 실행합니다.
 3. 학생 기록 저장과 자유 연습곡을 위해 `supabase/student-flow.sql`을 실행합니다.
 4. 교사 연습곡 목록 CRUD를 위해 `supabase/teacher-library.sql`을 실행합니다.
-5. Vercel 프로젝트의 `Settings > Environment Variables`에 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY`가 `Production` 환경으로 등록되어 있는지 확인합니다.
-6. Vercel을 다시 배포하고 `/api/supabase-health`에서 `connected: true`, `schemaReady: true`를 확인합니다.
-7. 교사 계정은 Supabase Auth의 이메일/비밀번호를 사용합니다. 현재 화면의 계정 만들기는 공개 가입 방식입니다.
+5. 학급별 자유 연습곡 배정을 위해 `supabase/class-repertoire.sql`을 실행합니다. 이 migration은 기존 반의 활성 곡을 보존하고 새 반은 비워 둡니다.
+6. Vercel 프로젝트의 `Settings > Environment Variables`에 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY`가 `Production` 환경으로 등록되어 있는지 확인합니다.
+7. Vercel을 다시 배포하고 `/api/supabase-health`에서 `connected: true`, `schemaReady: true`를 확인합니다.
+8. 교사 계정은 Supabase Auth의 이메일/비밀번호를 사용합니다. 현재 화면의 계정 만들기는 공개 가입 방식입니다.
 
 ## 아직 남은 작업
 
 - 실제 Vercel 배포에서 학생 입장→과제 선택→연습→재접속 이어하기 흐름을 end-to-end로 검증하기
 - 실제 학생 연습 기록이 생성된 뒤 교사 대시보드의 회차별 진행·정답률 집계를 확인하기
 - 실제 교사 로그인 상태에서 기본곡 수정/숨김과 새 악보 과제 등록을 확인하기
+- `class-repertoire.sql` 적용 후 학급별/다중 학급 연습곡·과제 배정을 실제 Supabase에서 검증하기
 - 최신 반응형 코드를 Vercel에 배포한 뒤 Chromebook·태블릿·휴대폰에서 확인하기
 - 공개 교사 계정 만들기를 학교 초대/관리 방식으로 제한할지 결정
 

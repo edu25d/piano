@@ -37,19 +37,9 @@ async function studentFor(studentId) {
   return rows[0];
 }
 
-async function teacherIdsForClass(classId) {
-  const links = await db(`/rest/v1/teacher_classes?class_id=eq.${classId}&select=teacher_id`);
-  return [...new Set((links || []).map(link => link.teacher_id))];
-}
-
-async function canStudentUsePracticeSong(classId, song) {
-  const teacherIds = await teacherIdsForClass(classId);
-  if (song.created_by) return teacherIds.includes(song.created_by);
-  if (!song.musicxml_path.startsWith('builtin:')) return false;
-  if (!teacherIds.length) return true;
-  const owners = `in.(${teacherIds.join(',')})`;
-  const overrides = await db(`/rest/v1/practice_songs?created_by=${owners}&musicxml_path=eq.${encodeURIComponent(song.musicxml_path)}&select=id&limit=1`);
-  return !overrides?.length;
+async function classHasPracticeSong(classId, songId) {
+  const links = await db(`/rest/v1/class_practice_songs?class_id=eq.${classId}&practice_song_id=eq.${songId}&is_active=eq.true&select=practice_song_id&limit=1`);
+  return Boolean(links?.length);
 }
 
 async function getSignedScore(path) {
@@ -70,20 +60,13 @@ async function getRequest(req, res) {
 
   if (action === 'catalog') {
     const student = await studentFor(req.query?.studentId);
-    const [assignments, practiceSongs, attempts, teacherIds] = await Promise.all([
+    const [assignments, repertoire, attempts] = await Promise.all([
       db(`/rest/v1/assignments?class_id=eq.${student.class_id}&is_active=eq.true&select=id,title,created_at&order=created_at.desc`),
-      db('/rest/v1/practice_songs?select=id,title,musicxml_path,difficulty,sort_order,created_by,is_active&order=sort_order.asc'),
-      db(`/rest/v1/practice_attempts?student_id=eq.${student.id}&select=id,assignment_id,practice_song_id,current_note_index,total_notes,correct_count,incorrect_count,status,updated_at&order=updated_at.desc`),
-      teacherIdsForClass(student.class_id)
+      db(`/rest/v1/class_practice_songs?class_id=eq.${student.class_id}&is_active=eq.true&select=practice_song:practice_songs(id,title,musicxml_path,difficulty,sort_order,is_active)&order=created_at.asc`),
+      db(`/rest/v1/practice_attempts?student_id=eq.${student.id}&select=id,assignment_id,practice_song_id,current_note_index,total_notes,correct_count,incorrect_count,status,updated_at&order=updated_at.desc`)
     ]);
-    const overriddenDefaults = new Set((practiceSongs || [])
-      .filter(song => song.created_by && teacherIds.includes(song.created_by) && song.musicxml_path.startsWith('builtin:'))
-      .map(song => song.musicxml_path));
-    const visibleSongs = (practiceSongs || []).filter(song => song.is_active && (
-      (song.created_by && teacherIds.includes(song.created_by)) ||
-      (!song.created_by && song.musicxml_path.startsWith('builtin:') && !overriddenDefaults.has(song.musicxml_path))
-    ));
-    return reply(res, 200, { student, assignments: assignments || [], practiceSongs: visibleSongs, attempts: attempts || [] });
+    const practiceSongs = (repertoire || []).map(link => link.practice_song).filter(song => song?.is_active);
+    return reply(res, 200, { student, assignments: assignments || [], practiceSongs, attempts: attempts || [] });
   }
 
   if (action === 'score') {
@@ -94,7 +77,7 @@ async function getRequest(req, res) {
     const rows = await db(`/rest/v1/${table}?${filter}&select=id,title,musicxml_path,created_by&limit=1`);
     if (!rows?.length) return reply(res, 404, { error: 'score_not_found' });
     const score = rows[0];
-    if (type === 'practice' && !await canStudentUsePracticeSong(student.class_id, score)) return reply(res, 404, { error: 'score_not_found' });
+    if (type === 'practice' && !await classHasPracticeSong(student.class_id, resourceId)) return reply(res, 404, { error: 'score_not_found' });
     if (score.musicxml_path.startsWith('builtin:')) return reply(res, 200, { title: score.title, builtin: score.musicxml_path });
     return reply(res, 200, { title: score.title, scoreUrl: await getSignedScore(score.musicxml_path), isMxl: /\.mxl$/i.test(score.musicxml_path) });
   }
@@ -124,7 +107,7 @@ async function startAttempt(body, res) {
   const resourceFilter = type === 'assignment' ? `id=eq.${resourceId}&class_id=eq.${student.class_id}&is_active=eq.true` : `id=eq.${resourceId}&is_active=eq.true`;
   const resources = await db(`/rest/v1/${table}?${resourceFilter}&select=id,created_by,musicxml_path&limit=1`);
   if (!resources?.length) return reply(res, 404, { error: 'resource_not_found' });
-  if (type === 'practice' && !await canStudentUsePracticeSong(student.class_id, resources[0])) return reply(res, 404, { error: 'resource_not_found' });
+  if (type === 'practice' && !await classHasPracticeSong(student.class_id, resourceId)) return reply(res, 404, { error: 'resource_not_found' });
   const relation = type === 'assignment' ? `assignment_id=eq.${resourceId}&practice_song_id=is.null` : `practice_song_id=eq.${resourceId}&assignment_id=is.null`;
   if (!forceNew) {
     const open = await db(`/rest/v1/practice_attempts?student_id=eq.${studentId}&${relation}&status=eq.in_progress&select=id,student_id,assignment_id,practice_song_id,current_note_index,total_notes,note_midi_sequence,correct_count,incorrect_count,status&order=updated_at.desc&limit=1`);
