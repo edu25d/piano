@@ -7,16 +7,14 @@ module.exports = async function supabaseHealth(req, res) {
   }
 
   const projectUrl = process.env.SUPABASE_URL?.replace(/\/+$/, '');
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const secretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!projectUrl || !serviceKey) {
+  if (!projectUrl || !secretKey) {
     return res.status(503).json({ connected: false, code: 'missing_configuration' });
   }
 
-  const headers = {
-    apikey: serviceKey,
-    Authorization: `Bearer ${serviceKey}`
-  };
+  const headers = { apikey: secretKey };
+  if (!secretKey.startsWith('sb_secret_')) headers.Authorization = `Bearer ${secretKey}`;
 
   try {
     const auth = await fetch(`${projectUrl}/auth/v1/health`, { headers });
