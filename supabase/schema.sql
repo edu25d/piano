@@ -20,6 +20,7 @@ create table if not exists public.practice_songs (
   title text not null,
   musicxml_path text not null,
   difficulty text,
+  created_by uuid references auth.users(id) on delete set null,
   sort_order integer not null default 0,
   is_active boolean not null default true,
   created_at timestamptz not null default now()

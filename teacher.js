@@ -9,6 +9,7 @@
   let client = null;
   let teacher = null;
   let classes = [];
+  let practiceSongs = [];
   let selectedClassId = '';
 
   function message(element, text, isError = false) {
@@ -45,6 +46,17 @@
     teacherDashboard.hidden = false;
     $('#teacher-logout').hidden = false;
     $('#teacher-heading-account').textContent = teacher?.email || '';
+    selectTeacherTab('overview');
+  }
+
+  function selectTeacherTab(tabName) {
+    const overview = tabName === 'overview';
+    $('#teacher-tab-overview').classList.toggle('is-active', overview);
+    $('#teacher-tab-overview').setAttribute('aria-selected', String(overview));
+    $('#teacher-tab-settings').classList.toggle('is-active', !overview);
+    $('#teacher-tab-settings').setAttribute('aria-selected', String(!overview));
+    $('#teacher-overview-panel').hidden = !overview;
+    $('#teacher-settings-panel').hidden = overview;
   }
 
   function updateMode(isTeacher) {
@@ -109,6 +121,108 @@
     if (!classes.length) list.innerHTML = '<p class="teacher-empty-note">반을 등록하면 여기에 표시됩니다.</p>';
   }
 
+  function renderPracticeSongs() {
+    const select = $('#teacher-assignment-song'), list = $('#teacher-practice-song-list');
+    const selectedSongId = select.value;
+    select.replaceChildren(new Option('목록에서 곡을 고르세요', ''));
+    for (const song of practiceSongs.filter(item => item.is_active)) {
+      select.add(new Option(`${song.title}${song.difficulty ? ` · ${song.difficulty}` : ''}`, song.id));
+    }
+    select.value = practiceSongs.some(song => song.id === selectedSongId && song.is_active) ? selectedSongId : '';
+    list.replaceChildren();
+    const showHidden = $('#teacher-library-show-hidden').checked;
+    const visibleSongs = practiceSongs.filter(song => showHidden || song.is_active);
+    if (!visibleSongs.length) {
+      list.innerHTML = '<p class="teacher-empty-note">표시할 연습곡이 없습니다. 파일을 올릴 때 목록에도 추가할 수 있어요.</p>';
+      return;
+    }
+    for (const song of visibleSongs) {
+      const owned = song.created_by === teacher?.id;
+      const row = document.createElement('article');
+      row.className = `teacher-song-item${song.is_active ? '' : ' is-archived'}`;
+      const main = document.createElement('div');
+      main.className = 'teacher-song-main';
+      const copy = document.createElement('div');
+      copy.className = 'teacher-song-copy';
+      const title = document.createElement('strong');
+      title.textContent = song.title;
+      const meta = document.createElement('span');
+      meta.className = 'teacher-song-meta';
+      meta.textContent = `${song.difficulty || '난이도 미지정'} · ${owned ? '내 연습곡' : '기본 연습곡'} · ${song.is_active ? '목록에 표시' : '숨김'}`;
+      copy.append(title, meta);
+      main.append(copy);
+      if (owned) {
+        const actions = document.createElement('div');
+        actions.className = 'teacher-song-actions';
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.dataset.songAction = 'edit';
+        edit.dataset.songId = song.id;
+        edit.textContent = '수정';
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.dataset.songAction = 'toggle';
+        toggle.dataset.songId = song.id;
+        toggle.textContent = song.is_active ? '목록에서 숨기기' : '다시 표시';
+        actions.append(edit, toggle);
+        main.append(actions);
+      }
+      row.append(main);
+      if (owned) {
+        const editor = document.createElement('form');
+        editor.className = 'teacher-song-editor';
+        editor.dataset.songEditForm = '';
+        editor.dataset.songId = song.id;
+        editor.hidden = true;
+        const titleLabel = document.createElement('label');
+        titleLabel.textContent = '곡 이름';
+        const titleInput = document.createElement('input');
+        titleInput.name = 'title';
+        titleInput.value = song.title;
+        titleInput.required = true;
+        titleInput.maxLength = 100;
+        titleLabel.append(titleInput);
+        const difficultyLabel = document.createElement('label');
+        difficultyLabel.textContent = '난이도';
+        const difficultyInput = document.createElement('input');
+        difficultyInput.name = 'difficulty';
+        difficultyInput.value = song.difficulty || '';
+        difficultyInput.maxLength = 30;
+        difficultyLabel.append(difficultyInput);
+        const save = document.createElement('button');
+        save.type = 'submit';
+        save.className = 'primary-button';
+        save.textContent = '저장';
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'secondary-control';
+        cancel.dataset.songAction = 'cancel';
+        cancel.textContent = '취소';
+        editor.append(titleLabel, difficultyLabel, save, cancel);
+        row.append(editor);
+      }
+      list.append(row);
+    }
+  }
+
+  async function loadPracticeSongs() {
+    try {
+      const db = await getSupabase();
+      const { data, error } = await db.from('practice_songs')
+        .select('id, title, musicxml_path, difficulty, sort_order, is_active, created_by')
+        .order('sort_order')
+        .order('title');
+      if (error) throw error;
+      practiceSongs = data || [];
+      renderPracticeSongs();
+      message($('#teacher-library-message'), '');
+    } catch (error) {
+      practiceSongs = [];
+      renderPracticeSongs();
+      message($('#teacher-library-message'), '연습곡 목록을 읽지 못했어요. Supabase에서 teacher-library.sql을 실행해 주세요.', true);
+    }
+  }
+
   async function loadTeacherData() {
     const db = await getSupabase();
     const { data, error } = await db.from('classes')
@@ -122,6 +236,7 @@
     classes = data || [];
     if (!classes.some(item => item.id === selectedClassId)) selectedClassId = classes[0]?.id || '';
     renderClassOptions();
+    await loadPracticeSongs();
     if (selectedClassId) await loadClassDetails(selectedClassId);
     else {
       renderAssignments([]);
@@ -297,33 +412,146 @@
     event.preventDefault();
     const classId = $('#teacher-assignment-class').value;
     const file = $('#teacher-score-file').files[0];
-    if (!classId || !file) return;
-    message($('#teacher-assignment-message'), '악보를 업로드하고 있습니다.');
-    const db = await getSupabase();
-    const path = `${classId}/${crypto.randomUUID()}-${file.name}`;
-    const { error: uploadError } = await db.storage.from('musicxml').upload(path, file, {
-      upsert: false,
-      contentType: file.type || 'application/octet-stream'
-    });
-    if (uploadError) {
-      message($('#teacher-assignment-message'), uploadError.message || '악보 파일을 올리지 못했어요.', true);
-      return;
+    const songId = $('#teacher-assignment-song').value;
+    const title = $('#teacher-assignment-title').value.trim();
+    if (!classId) return message($('#teacher-assignment-message'), '먼저 과제를 부여할 반을 선택해 주세요.', true);
+    if (Boolean(file) === Boolean(songId)) return message($('#teacher-assignment-message'), '연습곡 목록에서 한 곡을 고르거나 새 MusicXML 파일을 올려 주세요.', true);
+    if (!title) return message($('#teacher-assignment-message'), '과제 이름을 입력해 주세요.', true);
+
+    const button = $('#teacher-assignment-submit');
+    button.disabled = true;
+    message($('#teacher-assignment-message'), file ? '악보를 저장하고 과제를 등록하고 있어요.' : '선택한 연습곡을 과제로 등록하고 있어요.');
+    let db, uploadPath = '', librarySong = null;
+    try {
+      db = await getSupabase();
+      let musicxmlPath;
+      if (songId) {
+        const song = practiceSongs.find(item => item.id === songId && item.is_active);
+        if (!song) throw new Error('목록에서 연습곡을 다시 선택해 주세요.');
+        musicxmlPath = song.musicxml_path;
+      } else {
+        const extension = file.name.match(/\.(xml|musicxml|mxl)$/i)?.[1]?.toLowerCase();
+        if (!extension) throw new Error('XML, MusicXML 또는 MXL 파일을 선택해 주세요.');
+        const addToLibrary = $('#teacher-library-optin').checked;
+        uploadPath = addToLibrary
+          ? `library/${teacher.id}/${crypto.randomUUID()}.${extension}`
+          : `${classId}/${crypto.randomUUID()}.${extension}`;
+        musicxmlPath = uploadPath;
+        if (addToLibrary) {
+          const { data, error } = await db.from('practice_songs').insert({
+            title,
+            musicxml_path: uploadPath,
+            difficulty: $('#teacher-library-difficulty').value,
+            sort_order: 100,
+            is_active: true,
+            created_by: teacher.id
+          }).select('id, title, musicxml_path, difficulty, sort_order, is_active, created_by').single();
+          if (error) throw error;
+          librarySong = data;
+        }
+        const { error: uploadError } = await db.storage.from('musicxml').upload(uploadPath, file, {
+          upsert: false,
+          contentType: file.type || (extension === 'mxl' ? 'application/zip' : 'application/xml')
+        });
+        if (uploadError) {
+          if (librarySong) await db.from('practice_songs').delete().eq('id', librarySong.id);
+          throw uploadError;
+        }
+      }
+
+      const { error } = await db.from('assignments').insert({
+        class_id: classId,
+        title,
+        musicxml_path: musicxmlPath,
+        created_by: teacher.id
+      });
+      if (error) {
+        if (uploadPath && !librarySong) await db.storage.from('musicxml').remove([uploadPath]);
+        if (librarySong) await loadPracticeSongs();
+        throw error;
+      }
+      $('#teacher-score-file').value = '';
+      $('#teacher-assignment-song').value = '';
+      $('#teacher-assignment-title').value = '';
+      $('#teacher-score-file-name').textContent = 'XML 또는 MXL 파일을 선택하세요';
+      $('#teacher-library-optin').checked = false;
+      $('#teacher-library-optin-wrap').hidden = true;
+      $('#teacher-library-difficulty-wrap').hidden = true;
+      await Promise.all([loadClassDetails(classId), loadPracticeSongs()]);
+      message($('#teacher-assignment-message'), librarySong ? '과제를 등록하고 연습곡 목록에도 저장했어요.' : '과제를 등록했어요.');
+    } catch (error) {
+      const detail = /invalid key/i.test(error.message || '')
+        ? '파일 경로에 사용할 수 없는 문자가 포함되어 있어요. 안전한 파일 경로로 다시 시도해 주세요.'
+        : /row-level security|permission denied/i.test(error.message || '')
+          ? '저장 권한이 없어요. Supabase에서 teacher-library.sql을 실행했는지 확인해 주세요.'
+          : error.message || '과제를 등록하지 못했어요.';
+      message($('#teacher-assignment-message'), `과제를 등록하지 못했어요. ${detail}`, true);
+    } finally {
+      button.disabled = false;
     }
-    const title = file.name.replace(/\.(xml|musicxml|mxl)$/i, '');
-    const { error } = await db.from('assignments').insert({
-      class_id: classId,
-      title,
-      musicxml_path: path,
-      created_by: teacher.id
-    });
-    if (error) {
-      await db.storage.from('musicxml').remove([path]);
-      message($('#teacher-assignment-message'), error.message || '과제를 등록하지 못했어요.', true);
-      return;
-    }
+  }
+
+  function handleAssignmentSongChange() {
+    const song = practiceSongs.find(item => item.id === $('#teacher-assignment-song').value);
+    if (!song) return;
     $('#teacher-score-file').value = '';
-    await loadClassDetails(classId);
-    message($('#teacher-assignment-message'), '악보를 과제로 등록했어요.');
+    $('#teacher-score-file-name').textContent = '연습곡 목록에서 선택됨';
+    $('#teacher-library-optin-wrap').hidden = true;
+    $('#teacher-library-difficulty-wrap').hidden = true;
+    $('#teacher-library-optin').checked = false;
+    $('#teacher-assignment-title').value = song.title;
+  }
+
+  function handleScoreFileChange() {
+    const file = $('#teacher-score-file').files[0];
+    $('#teacher-score-file-name').textContent = file?.name || 'XML 또는 MXL 파일을 선택하세요';
+    $('#teacher-library-optin-wrap').hidden = !file;
+    $('#teacher-library-difficulty-wrap').hidden = true;
+    if (!file) return;
+    $('#teacher-assignment-song').value = '';
+    $('#teacher-assignment-title').value = file.name.replace(/\.(xml|musicxml|mxl)$/i, '');
+    $('#teacher-library-optin').checked = false;
+  }
+
+  async function handlePracticeSongClick(event) {
+    const button = event.target.closest('button[data-song-action]');
+    if (!button) return;
+    const song = practiceSongs.find(item => item.id === button.dataset.songId);
+    if (!song || song.created_by !== teacher?.id) return;
+    if (button.dataset.songAction === 'edit') {
+      const editor = button.closest('.teacher-song-item').querySelector('.teacher-song-editor');
+      editor.hidden = !editor.hidden;
+      return;
+    }
+    if (button.dataset.songAction === 'cancel') {
+      button.closest('.teacher-song-editor').hidden = true;
+      return;
+    }
+    if (button.dataset.songAction === 'toggle') {
+      const db = await getSupabase();
+      const { error } = await db.from('practice_songs').update({ is_active: !song.is_active }).eq('id', song.id).eq('created_by', teacher.id);
+      if (error) {
+        message($('#teacher-library-message'), error.message || '연습곡 공개 상태를 바꾸지 못했어요.', true);
+        return;
+      }
+      await loadPracticeSongs();
+      message($('#teacher-library-message'), song.is_active ? '연습곡을 목록에서 숨겼어요. 기존 기록은 보존됩니다.' : '연습곡을 다시 목록에 표시했어요.');
+    }
+  }
+
+  async function handlePracticeSongEdit(event) {
+    const form = event.target.closest('form[data-song-edit-form]');
+    if (!form) return;
+    event.preventDefault();
+    const songId = form.dataset.songId;
+    const title = form.elements.title.value.trim();
+    const difficulty = form.elements.difficulty.value.trim();
+    if (!title) return message($('#teacher-library-message'), '곡 이름을 입력해 주세요.', true);
+    const db = await getSupabase();
+    const { error } = await db.from('practice_songs').update({ title, difficulty: difficulty || null }).eq('id', songId).eq('created_by', teacher.id);
+    if (error) return message($('#teacher-library-message'), error.message || '연습곡 정보를 저장하지 못했어요.', true);
+    await loadPracticeSongs();
+    message($('#teacher-library-message'), '연습곡 정보를 수정했어요.');
   }
 
   async function toggleTeacherMode() {
@@ -396,8 +624,18 @@
   $('#teacher-mode-toggle').addEventListener('click', toggleTeacherMode);
   $('#teacher-login-form').addEventListener('submit', handleTeacherLogin);
   $('#teacher-signup').addEventListener('click', handleTeacherSignup);
+  $('#teacher-tab-overview').addEventListener('click', () => selectTeacherTab('overview'));
+  $('#teacher-tab-settings').addEventListener('click', () => selectTeacherTab('settings'));
   $('#teacher-class-form').addEventListener('submit', handleCreateClass);
   $('#teacher-assignment-form').addEventListener('submit', handleCreateAssignment);
+  $('#teacher-assignment-song').addEventListener('change', handleAssignmentSongChange);
+  $('#teacher-score-file').addEventListener('change', handleScoreFileChange);
+  $('#teacher-library-optin').addEventListener('change', event => {
+    $('#teacher-library-difficulty-wrap').hidden = !event.target.checked;
+  });
+  $('#teacher-practice-song-list').addEventListener('click', handlePracticeSongClick);
+  $('#teacher-practice-song-list').addEventListener('submit', handlePracticeSongEdit);
+  $('#teacher-library-show-hidden').addEventListener('change', renderPracticeSongs);
   $('#teacher-qr-generate').addEventListener('click', generateTeacherQr);
   $('#teacher-qr-copy').addEventListener('click', copyTeacherQrLink);
   $('#teacher-progress-class').addEventListener('change', event => selectTeacherClass(event.target.value));
