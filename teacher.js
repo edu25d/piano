@@ -1,9 +1,6 @@
 (() => {
   const $ = selector => document.querySelector(selector);
-  const studentView = $('#student-view');
   const teacherView = $('#teacher-view');
-  const studentEntryView = $('#student-entry-view');
-  const studentCatalogView = $('#student-catalog-view');
   const teacherAuthPanel = $('#teacher-auth-panel');
   const teacherDashboard = $('#teacher-dashboard');
   let client = null;
@@ -59,23 +56,9 @@
     $('#teacher-settings-panel').hidden = overview;
   }
 
-  function updateMode(isTeacher) {
-    teacherView.hidden = !isTeacher;
-    if (isTeacher) {
-      studentView.hidden = true;
-      studentEntryView.hidden = true;
-      studentCatalogView.hidden = true;
-    } else if (window.studentPortal?.showCurrentView) {
-      window.studentPortal.showCurrentView();
-    } else {
-      studentView.hidden = false;
-    }
-    $('#mode-label').textContent = isTeacher ? '교사 모드' : '학생 연습 모드';
-    $('#teacher-mode-toggle').textContent = isTeacher ? '학생 화면' : '교사 화면';
-  }
-
   async function openTeacherView() {
-    updateMode(true);
+    teacherView.hidden = false;
+    $('#mode-label').textContent = '교사 전용';
     showAuth();
     message($('#teacher-auth-message'), 'Supabase 연결을 확인하고 있습니다.');
     try {
@@ -98,25 +81,44 @@
     const list = $('#teacher-class-list');
     const assignmentSelect = $('#teacher-assignment-class');
     const progressSelect = $('#teacher-progress-class');
+    const qrSelect = $('#teacher-qr-class');
+    const currentQrClass = qrSelect.value;
     list.replaceChildren();
     assignmentSelect.replaceChildren(new Option('반 선택', ''));
     progressSelect.replaceChildren(new Option('반 선택', ''));
+    qrSelect.replaceChildren(new Option('반 선택', ''));
     for (const item of classes) {
       const title = `${item.grade}학년 ${item.class_name}`;
       assignmentSelect.add(new Option(title, item.id));
       progressSelect.add(new Option(title, item.id));
+      qrSelect.add(new Option(title, item.id));
+      const row = document.createElement('div');
+      row.className = 'teacher-class-row';
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'teacher-class-chip';
       button.textContent = title;
       button.setAttribute('aria-pressed', String(item.id === selectedClassId));
       button.addEventListener('click', () => selectTeacherClass(item.id));
-      list.append(button);
+      const qrButton = document.createElement('button');
+      qrButton.type = 'button';
+      qrButton.className = 'teacher-class-qr-button';
+      qrButton.textContent = '학생 QR';
+      qrButton.setAttribute('aria-label', `${title} 학생 접속 QR 만들기`);
+      qrButton.addEventListener('click', () => {
+        qrSelect.value = item.id;
+        selectTeacherTab('overview');
+        generateTeacherQr();
+      });
+      row.append(button, qrButton);
+      list.append(row);
     }
     assignmentSelect.value = selectedClassId;
     progressSelect.value = selectedClassId;
+    qrSelect.value = classes.some(item => item.id === currentQrClass) ? currentQrClass : selectedClassId;
     assignmentSelect.disabled = !classes.length;
     progressSelect.disabled = !classes.length;
+    qrSelect.disabled = !classes.length;
     $('#teacher-summary-classes').textContent = classes.length;
     if (!classes.length) list.innerHTML = '<p class="teacher-empty-note">반을 등록하면 여기에 표시됩니다.</p>';
   }
@@ -595,33 +597,16 @@
     message($('#teacher-library-message'), '연습곡 정보를 수정했어요.');
   }
 
-  async function toggleTeacherMode() {
-    const entering = teacherView.hidden;
-    updateMode(entering);
-    if (!entering) return;
-    showAuth();
-    message($('#teacher-auth-message'), 'Supabase 연결을 확인하고 있습니다.');
-    try {
-      const db = await getSupabase();
-      const { data: { session }, error } = await db.auth.getSession();
-      if (error) throw error;
-      if (!session?.user) {
-        message($('#teacher-auth-message'), '교사 계정으로 로그인하거나 새 계정을 만들어 주세요.');
-        return;
-      }
-      teacher = session.user;
-      showDashboard();
-      await loadTeacherData();
-    } catch (error) {
-      message($('#teacher-auth-message'), error.message || 'Supabase 연결을 확인하지 못했어요.', true);
-    }
-  }
-
   async function generateTeacherQr() {
-    const grade = $('#teacher-qr-grade').value;
+    const classId = $('#teacher-qr-class').value;
+    const classInfo = classes.find(item => item.id === classId);
+    if (!classInfo) {
+      message($('#teacher-qr-link'), 'QR을 만들 반을 선택해 주세요.', true);
+      return;
+    }
     const url = new URL('/', location.origin);
     url.searchParams.set('join', '1');
-    url.searchParams.set('grade', grade);
+    url.searchParams.set('classId', classId);
     const qrElement = $('#teacher-qr-canvas');
     const label = $('#teacher-qr-link');
     label.textContent = url.toString();
@@ -649,10 +634,14 @@
   }
 
   async function copyTeacherQrLink() {
-    const grade = $('#teacher-qr-grade').value;
+    const classId = $('#teacher-qr-class').value;
+    if (!classes.some(item => item.id === classId)) {
+      message($('#teacher-qr-link'), 'QR을 만들 반을 선택해 주세요.', true);
+      return;
+    }
     const url = new URL('/', location.origin);
     url.searchParams.set('join', '1');
-    url.searchParams.set('grade', grade);
+    url.searchParams.set('classId', classId);
     try {
       await navigator.clipboard.writeText(url.toString());
       $('#teacher-qr-link').textContent = '학생 접속 링크를 복사했어요.';
@@ -662,7 +651,6 @@
     }
   }
 
-  $('#teacher-mode-toggle').addEventListener('click', toggleTeacherMode);
   $('#teacher-login-form').addEventListener('submit', handleTeacherLogin);
   $('#teacher-signup').addEventListener('click', handleTeacherSignup);
   $('#teacher-tab-overview').addEventListener('click', () => selectTeacherTab('overview'));
@@ -679,6 +667,7 @@
   $('#teacher-library-show-hidden').addEventListener('change', renderPracticeSongs);
   $('#teacher-qr-generate').addEventListener('click', generateTeacherQr);
   $('#teacher-qr-copy').addEventListener('click', copyTeacherQrLink);
+  $('#teacher-qr-class').addEventListener('change', generateTeacherQr);
   $('#teacher-progress-class').addEventListener('change', event => selectTeacherClass(event.target.value));
   $('#teacher-assignment-class').addEventListener('change', event => selectTeacherClass(event.target.value));
   $('#teacher-logout').addEventListener('click', async () => {
@@ -688,4 +677,6 @@
     showAuth();
     message($('#teacher-auth-message'), '로그아웃했습니다.');
   });
+
+  if (new URLSearchParams(location.search).get('join') !== '1') openTeacherView();
 })();

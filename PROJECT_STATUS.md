@@ -10,7 +10,9 @@
 - 교사 담당 반 등록, MusicXML 과제 업로드, 반별 학생 진행 대시보드 UI
 - 교사 현황/반·곡 관리 탭 분리, 연습곡 목록 선택 후 과제 등록, 파일 업로드 경로 한글 제거
 - 교사 소유 연습곡 CRUD, 기본곡 교사별 override, 기록 보존을 위한 숨김 처리
-- 학년별 QR 링크/QR 생성, 학생 반·이름 입력 및 과제/자유 연습곡 선택 UI
+- 학급별 QR 생성, 학생 반·이름 입력 및 과제/자유 연습곡 선택 UI
+- 기본 주소는 교사 전용 로그인으로 시작하고, 학생은 반별 `?join=1&classId=...` QR 링크로만 입장
+- 학생 QR 링크의 학급 ID는 서버에서 확인해 입장 반을 고정
 - 학생용 서버 API: 반 목록, 서명된 악보 URL, 연습 회차 생성/이어하기, 음표별 정답·오답 기록
 - 기본 자유 연습곡 3곡: 작은 별, 도레미 산책, 높낮이 다리
 - `supabase/student-flow.sql`: 음표 진행 복원용 컬럼, 중복 답변 방지 키, 기본 자유 연습곡 데이터
@@ -25,10 +27,10 @@
 
 - 사용자가 Vercel 배포에서 `/api/supabase-health`가 `connected: true`, `schemaReady: true`를 반환했다고 확인했습니다. 이 검사는 기본 `classes` 테이블까지 확인합니다.
 - 사용자가 `supabase/teacher-screen.sql`, `supabase/student-flow.sql` 실행 및 Vercel `SUPABASE_PUBLISHABLE_KEY` 등록을 확인했습니다.
-- 사용자가 갱신된 `supabase/teacher-library.sql` 실행을 확인했습니다. Vercel에서 반·곡 관리 탭과 기본곡 교사별 override 코드가 제공되고 Health API도 정상입니다.
+- 사용자가 갱신된 `supabase/teacher-library.sql` 실행을 확인했습니다.
 - 과제 업로드 화면의 `Invalid key` 오류는 Supabase Storage 경로에 원본 한글 파일명을 포함한 것이 원인으로 확인되어, UUID와 확장자만 사용하는 경로로 변경했습니다.
-- 배포 주소 `https://piano-six-pied.vercel.app/`에서 최신 교사/학생 화면, `/api/supabase-health`, `/api/supabase-config`, `/api/student-portal`을 확인했습니다. Health는 `connected: true`, `schemaReady: true`이고 설정 응답도 준비되어 있습니다.
-- 최근 확인에서는 3학년 반 1개가 학생 반 목록 API에 표시됐습니다. 과제·곡 CRUD의 실제 인증 write 흐름은 브라우저 로그인 세션이 없어 아직 별도 확인이 필요합니다.
+- 현재 작업 코드에서 기본 주소는 교사 전용이고 학생은 학급별 QR의 `classId`로 입장하며, 상단 모드 전환은 제거했습니다.
+- 제공된 Vercel 주소는 아직 이전 접속 흐름을 서비스합니다. 배포 HTML에 이전 교사/학생 전환과 학년 QR이 남아 있고, 새 `/api/student-portal?action=class` 경로도 배포되어 있지 않습니다.
 - Vercel 환경변수 이름은 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY`입니다. 이전 키 이름인 `SUPABASE_SERVICE_ROLE_KEY`도 연결 API에서 호환됩니다.
 - Secret key는 Vercel 서버 함수에서만 사용하고 브라우저로 보내지 않습니다. Publishable key만 `/api/supabase-config`에서 교사 로그인용으로 전달합니다.
 - `.env`는 `.gitignore`에서 제외하고, 예시 변수 이름만 `.env.example`에 기록합니다.

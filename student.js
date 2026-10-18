@@ -3,9 +3,10 @@
   const entryView = $('#student-entry-view'), catalogView = $('#student-catalog-view'), practiceView = $('#student-view');
   const query = new URLSearchParams(location.search);
   const joinMode = query.get('join') === '1';
-  const gradeFromQr = Number(query.get('grade')) || 0;
-  let screen = joinMode ? 'entry' : 'practice';
+  const classIdFromQr = query.get('classId') || '';
+  let screen = 'entry';
   let profile = null;
+  let qrClass = null;
   let saveQueue = Promise.resolve();
   const apiErrors = {
     server_configuration_missing: '서버의 Supabase 설정을 확인해 주세요.',
@@ -52,49 +53,27 @@
     return data;
   }
 
-  function renderClasses(classes) {
-    const container = $('#student-class-options');
-    container.replaceChildren();
-    if (!classes.length) {
-      const empty = document.createElement('span');
-      empty.className = 'teacher-empty-note';
-      empty.textContent = '아직 등록된 반이 없어요. 선생님께 반 등록을 부탁해 주세요.';
-      container.append(empty);
+  async function loadQrClass() {
+    const form = $('#student-entry-form'), display = $('#student-class-display');
+    form.hidden = true;
+    display.hidden = true;
+    if (!classIdFromQr) {
+      showMessage($('#student-entry-message'), '학급별 QR 주소가 아니에요. 선생님께 새 QR을 요청해 주세요.', true);
       return;
     }
-    for (const item of classes) {
-      const label = document.createElement('label');
-      label.className = 'student-class-choice';
-      const radio = document.createElement('input');
-      radio.type = 'radio';
-      radio.name = 'student-class';
-      radio.value = item.id;
-      radio.required = true;
-      const text = document.createElement('span');
-      text.textContent = `${item.grade}학년 ${item.class_name}`;
-      label.append(radio, text);
-      container.append(label);
-    }
-  }
-
-  async function loadClasses() {
-    const grade = Number($('#student-grade-select').value);
-    const container = $('#student-class-options');
-    if (!grade) {
-      container.replaceChildren();
-      const prompt = document.createElement('span');
-      prompt.className = 'teacher-empty-note';
-      prompt.textContent = '학년을 선택해 주세요.';
-      container.append(prompt);
-      return;
-    }
-    container.innerHTML = '<span class="teacher-empty-note">학급을 불러오는 중입니다.</span>';
+    showMessage($('#student-entry-message'), 'QR에 연결된 학급을 확인하고 있어요.');
     try {
-      const { classes } = await apiGet({ action: 'classes', grade: String(grade) });
-      renderClasses(classes || []);
+      const data = await apiGet({ action: 'class', classId: classIdFromQr });
+      qrClass = data.class;
+      if (!qrClass) throw new Error('class_not_found');
+      display.textContent = `${qrClass.grade}학년 ${qrClass.class_name}`;
+      display.hidden = false;
+      $('#student-grade-prompt').textContent = '이 QR은 위 학급에 연결되어 있어요. 이름을 입력해 주세요.';
+      form.hidden = false;
+      showMessage($('#student-entry-message'), '');
     } catch (error) {
-      container.innerHTML = '';
-      showMessage($('#student-entry-message'), '학급을 불러오지 못했어요. Vercel 배포 주소에서 다시 열어주세요.', true);
+      qrClass = null;
+      showMessage($('#student-entry-message'), '이 학급 QR을 확인하지 못했어요. 선생님께 새 QR을 요청해 주세요.', true);
     }
   }
 
@@ -179,8 +158,7 @@
       $('#upload-button').hidden = true;
       $('#reset-button').hidden = true;
       $('#student-back-button').hidden = false;
-      $('#teacher-mode-toggle').textContent = '교사 화면';
-      $('#mode-label').textContent = '학생 연습 모드';
+      $('#mode-label').textContent = '학생 연습';
       setScreen('practice');
     } catch (error) {
       showMessage($('#student-catalog-message'), `연습곡을 열지 못했어요. ${error.message}`, true);
@@ -221,14 +199,14 @@
 
   async function handleEntrySubmit(event) {
     event.preventDefault();
-    const selected = $('input[name="student-class"]:checked'), displayName = $('#student-display-name').value.trim();
-    if (!selected || !displayName) {
-      showMessage($('#student-entry-message'), '반과 이름을 모두 선택해 주세요.', true);
+    const displayName = $('#student-display-name').value.trim();
+    if (!qrClass || !displayName) {
+      showMessage($('#student-entry-message'), '학급 QR을 확인하고 이름을 입력해 주세요.', true);
       return;
     }
     showMessage($('#student-entry-message'), '학생 정보를 저장하고 있어요.');
     try {
-      const { student, class: classInfo } = await apiPost({ action: 'join', classId: selected.value, displayName });
+      const { student, class: classInfo } = await apiPost({ action: 'join', classId: qrClass.id, displayName });
       profile = { studentId: student.id, classId: classInfo.id, grade: classInfo.grade, className: classInfo.class_name, displayName: student.display_name };
       await loadCatalog();
     } catch (error) {
@@ -240,14 +218,19 @@
     profile = null;
     setScreen('entry');
     $('#student-display-name').value = '';
-    $('#student-grade-select').value = gradeFromQr ? String(gradeFromQr) : '';
-    $('#student-grade-select').disabled = Boolean(gradeFromQr);
-    $('#student-grade-prompt').textContent = gradeFromQr ? `${gradeFromQr}학년 반을 선택하고 이름을 적어주세요. 같은 반 동명이인은 이름 뒤에 숫자를 붙여 구분해 주세요.` : '학년과 반을 고르고 이름을 적어주세요. 같은 반 동명이인은 이름 뒤에 숫자를 붙여 구분해 주세요.';
+    $('#student-grade-prompt').textContent = '이 QR은 반이 지정되어 있어요. 이름을 입력해 주세요.';
     showMessage($('#student-entry-message'), '');
-    loadClasses();
+    if (qrClass) {
+      $('#student-class-display').textContent = `${qrClass.grade}학년 ${qrClass.class_name}`;
+      $('#student-class-display').hidden = false;
+      $('#student-entry-form').hidden = false;
+    } else {
+      $('#student-class-display').hidden = true;
+      $('#student-entry-form').hidden = true;
+      loadQrClass();
+    }
   }
 
-  $('#student-grade-select').addEventListener('change', loadClasses);
   $('#student-entry-form').addEventListener('submit', handleEntrySubmit);
   $('#student-change-identity').addEventListener('click', showEntry);
   $('#student-back-button').addEventListener('click', () => {
@@ -262,7 +245,12 @@
   };
 
   if (joinMode) {
-    showEntry();
-    if (gradeFromQr >= 1 && gradeFromQr <= 12) $('#student-grade-select').value = String(gradeFromQr);
+    $('#mode-label').textContent = '학생 연습';
+    $('#help-button').hidden = false;
+    setScreen('entry');
+    $('#student-entry-form').hidden = true;
+    loadQrClass();
+  } else {
+    $('#help-button').hidden = true;
   }
 })();

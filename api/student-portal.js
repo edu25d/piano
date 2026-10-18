@@ -60,6 +60,14 @@ async function getSignedScore(path) {
 
 async function getRequest(req, res) {
   const action = req.query?.action;
+  if (action === 'class') {
+    const classId = req.query?.classId;
+    if (!validId(classId)) return reply(res, 400, { error: 'invalid_class' });
+    const classes = await db(`/rest/v1/classes?id=eq.${classId}&select=id,grade,class_name&limit=1`);
+    if (!classes?.length) return reply(res, 404, { error: 'class_not_found' });
+    return reply(res, 200, { class: classes[0] });
+  }
+
   if (action === 'classes') {
     const grade = Number(req.query?.grade);
     if (!Number.isInteger(grade) || grade < 1 || grade > 12) return reply(res, 400, { error: 'invalid_grade' });
