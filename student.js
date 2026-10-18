@@ -149,18 +149,20 @@
           xml = await entry.async('string');
         }
       }
-      if (!await window.practiceBridge.loadScore(xml, score.title || item.title)) throw new Error('악보를 불러오지 못했어요.');
-      const noteSequence = window.practiceBridge.getNoteSequence();
-      const { attempt } = await apiPost({ action: 'start', studentId: profile.studentId, type, resourceId: item.id, noteSequence });
-      if (!attempt) throw new Error('연습 회차를 만들지 못했어요.');
-      window.practiceBridge.setStudentSession(profile, attempt, { ...item, type });
       $('#sample-button').hidden = true;
       $('#upload-button').hidden = true;
       $('#reset-button').hidden = true;
       $('#student-back-button').hidden = false;
       $('#mode-label').textContent = '학생 연습';
       setScreen('practice');
+      $('#status-message').textContent = '악보를 화면 폭에 맞춰 준비하고 있어요.';
+      if (!await window.practiceBridge.loadScore(xml, score.title || item.title)) throw new Error('악보를 불러오지 못했어요.');
+      const noteSequence = window.practiceBridge.getNoteSequence();
+      const { attempt } = await apiPost({ action: 'start', studentId: profile.studentId, type, resourceId: item.id, noteSequence });
+      if (!attempt) throw new Error('연습 회차를 만들지 못했어요.');
+      window.practiceBridge.setStudentSession(profile, attempt, { ...item, type });
     } catch (error) {
+      setScreen('catalog');
       showMessage($('#student-catalog-message'), `연습곡을 열지 못했어요. ${error.message}`, true);
     }
   }

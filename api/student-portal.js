@@ -68,13 +68,6 @@ async function getRequest(req, res) {
     return reply(res, 200, { class: classes[0] });
   }
 
-  if (action === 'classes') {
-    const grade = Number(req.query?.grade);
-    if (!Number.isInteger(grade) || grade < 1 || grade > 12) return reply(res, 400, { error: 'invalid_grade' });
-    const classes = await db(`/rest/v1/classes?grade=eq.${grade}&select=id,grade,class_name&order=class_name`);
-    return reply(res, 200, { classes: classes || [] });
-  }
-
   if (action === 'catalog') {
     const student = await studentFor(req.query?.studentId);
     const [assignments, practiceSongs, attempts, teacherIds] = await Promise.all([
