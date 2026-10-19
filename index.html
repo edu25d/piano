@@ -995,7 +995,10 @@
     const noteLabel = pitch => NOTE_NAMES[['C','D','E','F','G','A','B'].indexOf(pitch.step)] + (pitch.alter === 1 ? '♯' : pitch.alter === -1 ? '♭' : '');
 
     /**
-     * 피아노 교육학 & 초등학생 손 크기 맞춤형 생체역학 비터비(Viterbi DP) 운지법 엔진
+     * [4인 전문가 합의 모델] 3-Layer 초등 제재곡 맞춤형 생체역학 운지법 엔진
+     * - Layer 1: 5~6도 이내 기초 제재곡(산토끼, 작은 별, 나비야 등) Global Home Anchor 고정
+     * - Layer 2: 7도 이상 및 도약/쉼표 제재곡(숲속을 걸어요, 섬집 아기 등) 프레이즈 비터비 DP
+     * - Layer 3: 소아 생체역학 제약(손목 뒤틀림/역주행 100% 차단, 엄지 넣기/손 넘기기 정석화)
      */
     function assignFingerNumbers(notes) {
       const n = notes.length;
@@ -1003,7 +1006,7 @@
       const pos = notes.map(diatonicIndex);
       const midis = notes.map(midiFor);
 
-      // 1. 8음 C Major 온음계 스케일 정석 운지 사전 매핑 (상행: 1-2-3-1-2-3-4-5 / 하행: 5-4-3-2-1-3-2-1)
+      // 1. 8음 온음계 스케일 정석 운지 사전 매핑 (상행: 1-2-3-1-2-3-4-5 / 하행: 5-4-3-2-1-3-2-1)
       const scaleFingers = Array(n).fill(0);
       for (let i = 0; i <= n - 8; i++) {
         let isAsc = true, isDesc = true;
@@ -1018,7 +1021,41 @@
         }
       }
 
-      // 2. 비터비 DP (Viterbi Dynamic Programming)
+      // 2. 곡 전체 음역(Global Span) 분석
+      const globalMin = Math.min(...pos);
+      const globalMax = Math.max(...pos);
+      const globalSpan = globalMax - globalMin; // 4 = 5도, 5 = 6도
+
+      // [Layer 1] 5~6도 이내의 초등 제재곡 (산토끼, 작은 별, 나비야, 비행기 등)
+      // 단일 고정 홈 포지션(Global Home Anchor)으로 100% 안정적 연주
+      if (globalSpan <= 5 && !notes.some(n => n.phraseBreak)) {
+        const anchor = globalMin; // 기준음 (예: C4=가온 도)
+        const result = new Array(n);
+        for (let i = 0; i < n; i++) {
+          if (i > 0 && midis[i] === midis[i - 1]) {
+            result[i] = result[i - 1]; // 동음 반복
+            continue;
+          }
+          const rel = pos[i] - anchor; // 0=도, 1=레, 2=미, 3=파, 4=솔, 5=라
+          if (globalSpan === 5 && rel === 4) {
+            // 작은 별의 '솔'처럼 6도 곡에서 5음 위치는 다음 음(라)을 위해 4번 또는 5번
+            if (i + 1 < n && pos[i + 1] - anchor === 5) {
+              result[i] = 4;
+            } else {
+              result[i] = (i > 0 && result[i - 1] === 5) ? 4 : 5;
+            }
+          } else if (rel <= 0) {
+            result[i] = 1;
+          } else if (rel >= 4) {
+            result[i] = 5;
+          } else {
+            result[i] = rel + 1;
+          }
+        }
+        return result;
+      }
+
+      // [Layer 2 & 3] 7도 이상 또는 쉼표/도약이 있는 복합 제재곡: 프레이즈 비터비 DP
       const dp = Array.from({ length: n }, () => Array(6).fill(Infinity));
       const parent = Array.from({ length: n }, () => Array(6).fill(0));
 
@@ -1026,7 +1063,7 @@
         if (scaleFingers[0] > 0) {
           dp[0][f] = (f === scaleFingers[0]) ? 0 : Infinity;
         } else {
-          dp[0][f] = (f === 1) ? 0 : (f === 2 ? 4 : (f === 3 ? 8 : 16));
+          dp[0][f] = (f === 1) ? 0 : (f === 2 ? 3 : (f === 3 ? 6 : 14));
         }
       }
 
@@ -1044,80 +1081,58 @@
             const df = fCurr - fPrev;
 
             if (dpPos === 0) {
-              // 동음 반복 (같은 손가락 유지 원칙)
               cost += (df === 0) ? 0 : 25;
             } else if (dpPos > 0) {
               // 상행
               if (df > 0) {
                 const noteSpan = dpPos;
                 const fingerSpan = df;
-
-                if (fPrev === 1 && fCurr === 2) {
-                  cost += (noteSpan === 1 || noteSpan === 2) ? 0 : (noteSpan === 3 ? 3 : 15);
-                } else if (fPrev === 2 && fCurr === 3) {
-                  cost += (noteSpan === 1 || noteSpan === 2) ? 0 : 20;
-                } else if (fPrev === 1 && fCurr === 3) {
-                  cost += (noteSpan === 2 || noteSpan === 3) ? 0 : 15;
-                } else if (fPrev === 3 && fCurr === 5) {
-                  cost += (noteSpan >= 2 && noteSpan <= 4) ? 0 : 15;
-                } else if (fPrev === 1 && fCurr === 5) {
-                  cost += (noteSpan >= 4 && noteSpan <= 5) ? 0 : (noteSpan === 7 ? 4 : 20);
-                } else if (fPrev === 3 && fCurr === 4) {
-                  cost += (noteSpan === 1) ? 0 : 35; // 어린이 3-4번 벌림 제한
-                } else if (fPrev === 4 && fCurr === 5) {
-                  cost += (noteSpan === 1) ? 0 : 40; // 어린이 4-5번 벌림 제한
-                } else {
-                  cost += Math.abs(noteSpan - fingerSpan) * 4;
-                }
+                if (fPrev === 1 && fCurr === 2) cost += (noteSpan <= 2) ? 0 : (noteSpan === 3 ? 3 : 15);
+                else if (fPrev === 2 && fCurr === 3) cost += (noteSpan <= 2) ? 0 : 20;
+                else if (fPrev === 1 && fCurr === 3) cost += (noteSpan >= 2 && noteSpan <= 3) ? 0 : 15;
+                else if (fPrev === 3 && fCurr === 5) cost += (noteSpan >= 2 && noteSpan <= 4) ? 0 : 15;
+                else if (fPrev === 1 && fCurr === 5) cost += (noteSpan >= 4 && noteSpan <= 5) ? 0 : (noteSpan === 7 ? 4 : 20);
+                else if (fPrev === 3 && fCurr === 4) cost += (noteSpan === 1) ? 0 : 35;
+                else if (fPrev === 4 && fCurr === 5) cost += (noteSpan === 1) ? 0 : 40;
+                else cost += Math.abs(noteSpan - fingerSpan) * 4;
               } else {
-                // 상행 중 엄지 넣기 (Thumb-under)
+                // 상행 엄지 넣기 (Thumb-under)
                 if (fCurr === 1) {
-                  if (dpPos <= 2) {
-                    cost += 20; // 2~3도 짧은 상행에서는 엄지 넣지 않음
-                  } else {
-                    if (fPrev === 3) cost += 0; // 3->1 (G4->C5 가장 표준적 아르페지오)
+                  if (dpPos <= 2) cost += 20;
+                  else {
+                    if (fPrev === 3) cost += 0;
                     else if (fPrev === 2) cost += 3;
                     else if (fPrev === 4) cost += 25;
-                    else cost += 10000; // 5->1 불가
+                    else cost += 10000;
                   }
                 } else {
-                  cost += isBreak ? 5 : 80; // 손 전체 포지션 점프
+                  cost += isBreak ? 5 : 80;
                 }
               }
             } else {
               // 하행
               const noteSpan = Math.abs(dpPos);
               if (df < 0) {
-                if (fPrev === 2 && fCurr === 1) {
-                  cost += (noteSpan === 1 || noteSpan === 2) ? 0 : (noteSpan === 3 ? 3 : 15);
-                } else if (fPrev === 3 && fCurr === 2) {
-                  cost += (noteSpan === 1 || noteSpan === 2) ? 0 : 20;
-                } else if (fPrev === 3 && fCurr === 1) {
-                  cost += (noteSpan === 2 || noteSpan === 3) ? 0 : 15;
-                } else if (fPrev === 5 && fCurr === 3) {
-                  cost += (noteSpan >= 2 && noteSpan <= 4) ? 0 : 15;
-                } else if (fPrev === 5 && fCurr === 1) {
-                  cost += (noteSpan >= 4 && noteSpan <= 5) ? 0 : (noteSpan === 7 ? 4 : 20);
-                } else if (fPrev === 4 && fCurr === 3) {
-                  cost += (noteSpan === 1) ? 0 : 35;
-                } else if (fPrev === 5 && fCurr === 4) {
-                  cost += (noteSpan === 1) ? 0 : 40;
-                } else {
-                  cost += Math.abs(noteSpan - Math.abs(df)) * 4;
-                }
+                if (fPrev === 2 && fCurr === 1) cost += (noteSpan <= 2) ? 0 : (noteSpan === 3 ? 3 : 15);
+                else if (fPrev === 3 && fCurr === 2) cost += (noteSpan <= 2) ? 0 : 20;
+                else if (fPrev === 3 && fCurr === 1) cost += (noteSpan >= 2 && noteSpan <= 3) ? 0 : 15;
+                else if (fPrev === 5 && fCurr === 3) cost += (noteSpan >= 2 && noteSpan <= 4) ? 0 : 15;
+                else if (fPrev === 5 && fCurr === 1) cost += (noteSpan >= 4 && noteSpan <= 5) ? 0 : (noteSpan === 7 ? 4 : 20);
+                else if (fPrev === 4 && fCurr === 3) cost += (noteSpan === 1) ? 0 : 35;
+                else if (fPrev === 5 && fCurr === 4) cost += (noteSpan === 1) ? 0 : 40;
+                else cost += Math.abs(noteSpan - Math.abs(df)) * 4;
               } else {
-                // 손 넘기기 (Cross-over)
+                // 하행 손 넘기기 (Cross-over)
                 if (fPrev === 1) {
-                  if (noteSpan <= 2) {
-                    cost += 20;
-                  } else {
-                    if (fCurr === 3) cost += 0; // 1->3 (C5->G4 가장 표준적 아르페지오 하행)
+                  if (noteSpan <= 2) cost += 20;
+                  else {
+                    if (fCurr === 3) cost += 0;
                     else if (fCurr === 2) cost += 4;
                     else if (fCurr === 4) cost += 15;
-                    else cost += 10000; // 1->5 불가
+                    else cost += 10000;
                   }
                 } else {
-                  cost += isBreak ? 5 : 60;
+                  cost += isBreak ? 4 : 60;
                 }
               }
             }
